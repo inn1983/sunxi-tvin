@@ -29,7 +29,8 @@
 #include <linux/input.h>
 
 //#include "./../lichee/linux-2.6.36/include/linux/drv_display_sun4i.h"//modify this
-#include "/home/enrico/dev/linux-sunxi-hans/include/video/sunxi_disp_ioctl.h"
+#include <stdint.h>
+#include "sunxi_disp_ioctl.h"
 
 #define DISPLAY
 #define LCD_WIDTH	1280
@@ -87,11 +88,25 @@ static int read_frame (void)//FIXME
 	buf.memory = V4L2_MEMORY_MMAP;
 
 	ioctl (fd, VIDIOC_DQBUF, &buf); //出列采集的帧缓冲
+	
+	//save to file.
+	/*
+	if(s_fristrun)
+	{
+		FILE * file_fd;
+		
+		file_fd = fopen("capyuyv.yuv", "w");//?片文件名
+
+		fwrite((unsigned char*)buffer, size_y*2, 1, file_fd); //将其写入文件中
+		fclose(file_fd);
+	}
+	*/
 	        
 	assert (buf.index < n_buffers);
 	disp_set_addr(disp_size.width, disp_size.height,&buf.m.offset);
 	
 	ioctl (fd, VIDIOC_QBUF, &buf); //再将其入列
+	printf("read_frame!! \n");
 
 	return 1;
 }
@@ -274,7 +289,7 @@ int main(int argc, char* argv[])
 	sigact.sa_handler = handle_int;
 	
 	//format=V4L2_PIX_FMT_NV12; //V4L2_PIX_FMT_NV16
-	format = V4L2_PIX_FMT_NV12;
+	format = V4L2_PIX_FMT_MJPEG;
 	disp_format=DISP_FORMAT_YUV420; //DISP_FORMAT_YUV422
 	disp_seq=DISP_SEQ_UVUV;
 	struct v4l2_format fmt;
@@ -291,11 +306,10 @@ int main(int argc, char* argv[])
 		return -1;
 	}*/
 		
-	fd = open ("/dev/video1", O_RDWR /* required */ | O_NONBLOCK, 0);
-	
+	fd = open ("/dev/video0", O_RDWR /* required */ | O_NONBLOCK, 0);
 	
 	int ret = -1;
-
+/*
 	CLEAR (fmt_priv);
 	fmt_priv.type                = V4L2_BUF_TYPE_PRIVATE;
 	fmt_priv.fmt.raw_data[0] =0;//interface
@@ -315,28 +329,30 @@ int main(int argc, char* argv[])
 		ret = -1;
 		return ret; 
 	}
+*/
+
+	CLEAR (fmt);
+	fmt.type                = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+	fmt.fmt.pix.width       = 640;//720; 
+	fmt.fmt.pix.height      = 480;//576;//480;
+	fmt.fmt.pix.pixelformat = format;//V4L2_PIX_FMT_YUV422P;//V4L2_PIX_FMT_NV12;//V4L2_PIX_FMT_YUYV;
+	fmt.fmt.pix.field       = V4L2_FIELD_NONE;
+	if (-1 == ioctl (fd, VIDIOC_S_FMT, &fmt)) //设置图像格式
+	{
+		printf("VIDIOC_S_FMT error! \n");
+		ret = -1;
+		return ret;
+	}
 	
-//	CLEAR (fmt);
-//	fmt.type                = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-//	fmt.fmt.pix.width       = 720*fmt_priv.fmt.raw_data[8];//720; 
-//	fmt.fmt.pix.height      = 480*fmt_priv.fmt.raw_data[9];//576;//480;
-//	fmt.fmt.pix.pixelformat = format;//V4L2_PIX_FMT_YUV422P;//V4L2_PIX_FMT_NV12;//V4L2_PIX_FMT_YUYV;
-//	fmt.fmt.pix.field       = V4L2_FIELD_NONE;
-//	if (-1 == ioctl (fd, VIDIOC_S_FMT, &fmt)) //设置图像格式
-//	{
-//		printf("VIDIOC_S_FMT error! b\n");
-//		ret = -1;
-//		return ret;
-//	}
-	
-	disp_mode=fmt_priv.fmt.raw_data[2]?DISP_MOD_MB_UV_COMBINED:DISP_MOD_NON_MB_UV_COMBINED;//DISP_MOD_NON_MB_UV_COMBINED DISP_MOD_MB_UV_COMBINED
-	disp_size.width = fmt_priv.fmt.raw_data[8]*(fmt_priv.fmt.raw_data[2]?704:720);//width
-	disp_size.height = fmt_priv.fmt.raw_data[9]*(fmt_priv.fmt.raw_data[1]?576:480);//height
+	//disp_mode=fmt_priv.fmt.raw_data[2]?DISP_MOD_MB_UV_COMBINED:DISP_MOD_NON_MB_UV_COMBINED;//DISP_MOD_NON_MB_UV_COMBINED DISP_MOD_MB_UV_COMBINED
+	disp_mode = DISP_MOD_MB_UV_COMBINED;
+	disp_size.width = 640;//fmt_priv.fmt.raw_data[8]*(fmt_priv.fmt.raw_data[2]?704:720);//width
+	disp_size.height = 480;//fmt_priv.fmt.raw_data[9]*(fmt_priv.fmt.raw_data[1]?576:480);//height
 	printf("disp_size.width=%d\n", disp_size.width);
 	printf("disp_size.height=%d\n", disp_size.height);
 	
 	usleep(100000);//delay 100ms if you want to check the status after set fmt
-	
+	/*
 	CLEAR (fmt_priv);
 	fmt_priv.type                = V4L2_BUF_TYPE_PRIVATE;
 	if (-1 == ioctl (fd, VIDIOC_G_FMT, &fmt_priv)) //设置自定义
@@ -358,7 +374,7 @@ int main(int argc, char* argv[])
 	printf("status[1]=%d\n", fmt_priv.fmt.raw_data[17]);
 	printf("status[2]=%d\n", fmt_priv.fmt.raw_data[18]);
 	printf("status[3]=%d\n", fmt_priv.fmt.raw_data[19]);
-
+*/
 	struct v4l2_requestbuffers req;
 	CLEAR (req);
 	req.count               = 5;
@@ -428,11 +444,11 @@ int main(int argc, char* argv[])
 		}
 
 
-		CLEAR (fmt_priv);
-		fmt_priv.type                = V4L2_BUF_TYPE_PRIVATE;
-		if (-1 == ioctl (fd, VIDIOC_G_FMT, &fmt_priv)) //监视状态
+		CLEAR (fmt);
+		fmt.type                = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+		if (-1 == ioctl (fd, VIDIOC_G_FMT, &fmt)) //监视状态
 		{
-			printf("VIDIOC_G_FMT error!  a\n");
+			printf("VIDIOC_G_FMT error!  \n");
 			ret = -1;
 			return ret;
 		}
@@ -480,7 +496,7 @@ unmap:
 	}
 	
 	disp_stop();
-	disp_exit();	
+	//disp_exit();	
 	close (fd);
 	
 	printf("TVD demo bye!\n");

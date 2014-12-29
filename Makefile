@@ -1,6 +1,6 @@
-CC = arm-angstrom-linux-gnueabi-gcc
+CC = gcc
 
-CFLAGS = -Wall 
+CFLAGS = -Wall -g
 LDFLAGS = -static 
 
 #CFLAGS = -Wall -I$(HOME)/lichee/buildroot/output/staging/usr/include
